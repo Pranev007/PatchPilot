@@ -1,0 +1,67 @@
+# Benchmark repositories.
+#
+# SELECTING REPOS IS THE FIRST REAL TASK OF THIS PROJECT, and it is where most
+# of the effort goes. The filter that matters:
+#
+#   1. The repo tells you how to build and test it. A working GitHub Actions
+#      workflow, tox.ini, or devcontainer IS the build recipe -- copy `install`
+#      and `test` straight out of it. If a repo does not document this, skip
+#      it; chasing undocumented system dependencies is not what you are
+#      measuring.
+#   2. Pure Python, small, fast suite (target: under 2 minutes).
+#   3. Pin `ref` to a commit SHA or a tag from BEFORE the repo supported the
+#      target interpreter -- check the CI matrix at that ref caps out at 3.8
+#      or 3.9. If the code already runs on 3.12 there is nothing to migrate
+#      and the repo is green on iteration zero, which tells you nothing.
+#   4. No network in the tests, no database, no docker-in-docker.
+#
+# The three below are STARTING CANDIDATES, not a validated set. Verify each
+# ref exists and that the suite collects at the old interpreter before you
+# trust any number that comes out of them:
+#
+#     migrate run --only pallets/itsdangerous --max-iterations 1
+#
+# An iteration cap of 1 runs the baseline and the first test pass without
+# calling the model, so it costs nothing and tells you whether the harness
+# can drive that repo at all.
+
+# `install` MUST bring in test-only dependencies, not just the package. A repo
+# whose suite cannot import its own test helpers collects tests but runs none,
+# and the harness will (correctly) refuse to use it as a baseline. Read the
+# repo tox.ini or CI workflow and copy what it installs.
+
+defaults:
+  from_python: "3.8"
+  to_python: "3.12"
+  install:
+    - "uv pip install -e ."
+  test: "python -m pytest"
+
+repos:
+  - name: pallets/itsdangerous
+    url: https://github.com/pallets/itsdangerous
+    ref: "2.0.1"
+    install:
+      - "uv pip install -e ."
+      # tox.ini at this ref: deps = -r requirements/tests.txt
+      - "uv pip install -r requirements/tests.txt"
+    notes: >
+      Small, pure Python, pytest. Needs freezegun from requirements/tests.txt --
+      `pip install -e .` alone collects 66 tests and runs zero.
+
+  - name: jd/tenacity
+    url: https://github.com/jd/tenacity
+    ref: "8.0.1"
+    install:
+      - "uv pip install -e ."
+    notes: >
+      Retry library. Older versions touch asyncio.get_event_loop, which is
+      deprecated in the 3.10+ range -- a genuine migration target.
+      VERIFY the install recipe against its CI before trusting a baseline.
+
+  - name: psf/cachecontrol
+    url: https://github.com/psf/cachecontrol
+    ref: "v0.12.11"
+    notes: >
+      Small HTTP cache library. Check whether its suite needs network access
+      at this ref; if it does, drop it.
