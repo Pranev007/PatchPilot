@@ -21,7 +21,7 @@ from pathlib import Path
 
 from .sandbox import ExecResult, Sandbox
 
-_REPORT_FILE = ".migrator-report.json"
+_REPORT_FILE = ".patchpilot-report.json"
 
 # Installed into every sandbox venv so we get per-test node IDs rather than
 # having to scrape pytest's human-readable summary.

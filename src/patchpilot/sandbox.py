@@ -285,7 +285,7 @@ class DockerSandbox:
         if not res.ok:
             raise RuntimeError(f"clone failed: {res.tail()}")
 
-        name = f"migrator-{self.root.name}"
+        name = f"patchpilot-{self.root.name}"
         _run(["docker", "rm", "-f", name], cwd=None, timeout=60)
         res = _run(
             [

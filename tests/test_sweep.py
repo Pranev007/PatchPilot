@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from migrator.config import RunConfig  # noqa: E402
-from migrator.sweep import (  # noqa: E402
+from patchpilot.config import RunConfig  # noqa: E402
+from patchpilot.sweep import (  # noqa: E402
     Cell,
     load_cells,
     render_sweep,

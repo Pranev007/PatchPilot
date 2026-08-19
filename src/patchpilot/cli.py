@@ -1,10 +1,10 @@
 """Command line entry point.
 
-    migrate run           --repos configs/repos.yaml [--sandbox docker]
-    migrate sweep         --efforts medium high xhigh --repeats 3
-    migrate report        --run runs/2026-08-17T12-00-00
-    migrate sweep-report  --sweep runs/sweep-2026-08-17T12-00-00
-    migrate doctor
+    patchpilot run           --repos configs/repos.yaml [--sandbox docker]
+    patchpilot sweep         --efforts medium high xhigh --repeats 3
+    patchpilot report        --run runs/2026-08-17T12-00-00
+    patchpilot sweep-report  --sweep runs/sweep-2026-08-17T12-00-00
+    patchpilot doctor
 """
 
 from __future__ import annotations
@@ -250,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument(
         "--max-spend",
         type=float,
-        default=float(os.environ.get("MIGRATOR_MAX_SPEND_USD", "1.00")),
+        default=float(os.environ.get("PATCHPILOT_MAX_SPEND_USD", "1.00")),
         help="hard per-repo spend cap in USD",
     )
     p_run.add_argument("--sandbox", default="local", choices=["local", "docker"])

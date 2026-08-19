@@ -19,7 +19,7 @@
 # ref exists and that the suite collects at the old interpreter before you
 # trust any number that comes out of them:
 #
-#     migrate run --only pallets/itsdangerous --max-iterations 1
+#     patchpilot run --only pallets/itsdangerous --max-iterations 1
 #
 # An iteration cap of 1 runs the baseline and the first test pass without
 # calling the model, so it costs nothing and tells you whether the harness

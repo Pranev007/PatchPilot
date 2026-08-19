@@ -15,8 +15,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from migrator.harness import SuiteReport, failure_digest, run_tests  # noqa: E402
-from migrator.sandbox import ExecResult, LocalVenvSandbox  # noqa: E402
+from patchpilot.harness import SuiteReport, failure_digest, run_tests  # noqa: E402
+from patchpilot.sandbox import ExecResult, LocalVenvSandbox  # noqa: E402
 
 
 class FakeSandbox:
@@ -28,7 +28,7 @@ class FakeSandbox:
 
     def exec(self, cmd, timeout):  # noqa: ARG002
         if self._payload is not None:
-            (self.workdir / ".migrator-report.json").write_text(
+            (self.workdir / ".patchpilot-report.json").write_text(
                 json.dumps(self._payload), encoding="utf-8"
             )
         return ExecResult(0, "collected 3 items", "")
@@ -92,7 +92,7 @@ def test_run_tests_parses_outcomes(tmp_path):
     assert report.failing == {"t.py::test_b"}
     assert report.skipped == {"t.py::test_c"}
     # The report file is consumed, not left behind to pollute the next run.
-    assert not (tmp_path / ".migrator-report.json").exists()
+    assert not (tmp_path / ".patchpilot-report.json").exists()
 
 
 def test_run_tests_survives_a_collection_crash(tmp_path):

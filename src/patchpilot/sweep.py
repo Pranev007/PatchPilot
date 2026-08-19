@@ -4,7 +4,7 @@ The output is the chart that makes the project worth reading -- success rate
 against dollars, so you can say where the extra reasoning stops paying for
 itself rather than just asserting that more is better.
 
-Three things this does that a for-loop around `migrate run` would not:
+Three things this does that a for-loop around `patchpilot run` would not:
 
   Repeats. The agent is nondeterministic, so a single run per cell gives a
   point estimate with no error bar and invites reading noise as signal.
