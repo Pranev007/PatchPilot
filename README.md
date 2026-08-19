@@ -29,6 +29,94 @@ Report alongside the table: the model, the `--effort` level, and whether
 `--honour-test-pins` was set. The numbers are not comparable across those
 settings.
 
+Raw artifacts for the published run — `result.json` and `trace.jsonl` per
+repository — are committed under [`runs/published/`](runs/published/), so every
+row in the table can be traced back to a recorded run.
+
+---
+
+## Worked example: `pallets/itsdangerous`
+
+One repository end to end, so the loop is legible without reading the code.
+
+> **Status:** stages 1–3 below are recorded output from an actual harness run.
+> Stages 4–5 require a run with an API key and are **not yet filled in** — the
+> agent has not been invoked against this repository. Nothing in this section
+> is reconstructed or illustrative.
+
+### 1. Baseline on Python 3.8
+
+The suite is captured before anything is touched:
+
+```
+exit=0 collected=421 passed=421 failed=0 skipped=0
+```
+
+421 test node IDs go into the baseline set. Those, specifically, are what must
+still pass afterwards.
+
+Note the install recipe this needed. `uv pip install -e .` alone collects 421
+tests and runs **zero** — the suite imports `freezegun`, which lives in
+`requirements/tests.txt`. The repo's own `tox.ini` says `deps = -r
+requirements/tests.txt`, which is exactly why the selection filter insists the
+CI config is the build recipe.
+
+### 2. Switch to Python 3.12 — the suite stops running entirely
+
+Same checkout, new environment. pytest now dies before collecting anything:
+
+```
+exit=1 collected=0 passed=0 failed=0 skipped=0
+```
+
+```
+  File ".../_pytest/compat.py", line 32, in <module>
+    LEGACY_PATH = py.path.local
+  File ".../py/_vendored_packages/apipkg/__init__.py", line 150, in __makeattr
+    raise AttributeError(name)
+AttributeError: __spec__
+```
+
+The cause is not the package under test and not pytest. It is `py==1.10.0`, a
+transitive pin from `requirements/tests.txt`, which is itself incompatible with
+3.12 — and pytest imports it for its legacy-path shim when it is present.
+Isolated:
+
+| Environment | `pytest --version` |
+|---|---|
+| Python 3.12 + pytest 9.1.1 | `pytest 9.1.1` |
+| Python 3.12 + pytest 9.1.1 + `py==1.10.0` | `AttributeError: __spec__` |
+
+This is a genuine migration task — an outdated dependency pin that does not
+survive the interpreter upgrade — so the harness hands it to the agent rather
+than skipping the repository.
+
+### 3. What the agent receives
+
+Because the suite produced no results at all, the digest leads with the
+traceback instead of naming 421 individually broken tests:
+
+```
+The test suite does not run on the new interpreter at all
+(exit=1, 0 of 421 baseline tests executed). Fix this before anything else.
+
+Output:
+<traceback above>
+```
+
+Listing every baseline node ID here would bury the one traceback that explains
+the failure, and would cost those tokens again on every iteration.
+
+### 4. The patch the agent produced
+
+_Pending first agent run. Fill from `runs/published/benchmark/` with the diff
+and the iteration count it took._
+
+### 5. Result
+
+_Pending. The number that closes this section is the suite going from 0 back to
+421 passing on 3.12 — or an honest record of the agent failing to get there._
+
 ---
 
 ## Effort sweep

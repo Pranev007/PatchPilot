@@ -1,4 +1,9 @@
-runs/
+# Ignore working runs, but keep the one published run whose artifacts back
+# the numbers in the README. Must be `runs/*` and not `runs/` -- git does
+# not descend into an ignored directory, so a negation inside one never
+# matches.
+runs/*
+!runs/published/
 .venv/
 __pycache__/
 *.pyc
