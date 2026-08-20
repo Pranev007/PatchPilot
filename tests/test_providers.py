@@ -181,3 +181,47 @@ def test_usage_accumulates_across_calls(tmp_path):
     assert ledger.cache_read_tokens == 50
     assert ledger.api_calls == 2
     assert ledger.cost_usd > 0
+
+
+# --- provider extension fields -----------------------------------------
+
+
+class _FakeFn:
+    def __init__(self, name, arguments):
+        self.name = name
+        self.arguments = arguments
+
+
+class _FakeCall:
+    def __init__(self, id, name, arguments, model_extra=None):
+        self.id = id
+        self.function = _FakeFn(name, arguments)
+        self.model_extra = model_extra or {}
+
+
+def test_tool_call_echo_preserves_provider_extensions():
+    """Regression test: Gemini 3.x rejects a follow-up without this.
+
+    The signature is attached under extra_content.google and the next request
+    fails with "Function call is missing a thought_signature" if the compat
+    layer rebuilds the message without it -- which breaks multi-turn tool use
+    completely, on the second call of every repo.
+    """
+    from patchpilot.providers.openai_provider import _echo_tool_call
+
+    extra = {"google": {"thought_signature": "abc123"}}
+    out = _echo_tool_call(
+        _FakeCall("call_1", "list_files", '{"glob":"*.py"}',
+                  {"extra_content": extra})
+    )
+    assert out["extra_content"] == extra
+    assert out["function"]["name"] == "list_files"
+    assert out["id"] == "call_1"
+
+
+def test_tool_call_echo_omits_extension_when_absent():
+    """Providers that send nothing extra must not gain an empty field."""
+    from patchpilot.providers.openai_provider import _echo_tool_call
+
+    out = _echo_tool_call(_FakeCall("call_1", "read_file", "{}"))
+    assert "extra_content" not in out

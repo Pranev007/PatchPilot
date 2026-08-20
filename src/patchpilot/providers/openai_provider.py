@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from .base import ToolCall, Turn, Usage
+from .base import RateLimiter, ToolCall, Turn, Usage, retry_delay_from
 
 # Endpoints worth having a shorthand for. Anything else can be passed with
 # --base-url directly.
@@ -39,6 +39,17 @@ KNOWN_BASE_URLS = {
     "together": "https://api.together.xyz/v1",
     "huggingface": "https://router.huggingface.co/v1",
     "openai": None,  # SDK default
+}
+
+# Conservative default requests-per-minute per provider, chosen for the free
+# tier because that is what a first run hits. Gemini's free tier allows 5/min
+# on the newer Flash models and answers a violation with a ~25s penalty, so
+# spacing requests is cheaper than discovering the ceiling repeatedly.
+# Override with --rpm; 0 disables spacing entirely.
+DEFAULT_RPM = {
+    "gemini": 5,
+    "huggingface": 10,
+    "openrouter": 20,
 }
 
 # Environment variable each shorthand reads its key from, so a key never has
@@ -68,6 +79,34 @@ def to_openai_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _echo_tool_call(call: Any) -> dict[str, Any]:
+    """Rebuild an assistant tool call for the conversation history.
+
+    Provider extension fields are preserved rather than dropped. This is not
+    cosmetic: Gemini 3.x attaches a `thought_signature` under
+    `extra_content.google` and *rejects the next request* if it is missing --
+
+        Function call is missing a thought_signature in functionCall parts.
+        This is required for tools to work correctly.
+
+    so a compat layer that reconstructs only the fields it recognises breaks
+    multi-turn tool use entirely. Copying the whole extension blob keeps this
+    working for whatever the next provider decides to attach.
+    """
+    entry: dict[str, Any] = {
+        "id": call.id,
+        "type": "function",
+        "function": {
+            "name": call.function.name,
+            "arguments": call.function.arguments,
+        },
+    }
+    extra = (getattr(call, "model_extra", None) or {}).get("extra_content")
+    if extra:
+        entry["extra_content"] = extra
+    return entry
+
+
 class OpenAICompatProvider:
     name = "openai-compatible"
 
@@ -78,6 +117,7 @@ class OpenAICompatProvider:
         api_key: str | None = None,
         base_url: str | None = None,
         max_tokens: int = 16000,
+        rpm: float | None = None,
     ):
         try:
             import openai
@@ -101,6 +141,8 @@ class OpenAICompatProvider:
         self.messages: list[dict[str, Any]] = []
         self._tools: list[dict[str, Any]] = []
         self._effort_supported = effort is not None
+        self.limiter = RateLimiter(rpm)
+        self.rate_limit_waits = 0.0
 
     @property
     def client(self):
@@ -127,7 +169,24 @@ class OpenAICompatProvider:
                 {"role": "tool", "tool_call_id": call_id, "content": body}
             )
 
+    MAX_429_RETRIES = 6
+
     def _request(self) -> Any:
+        for attempt in range(self.MAX_429_RETRIES + 1):
+            self.limiter.wait()
+            try:
+                return self._request_once()
+            except self._openai.RateLimitError as exc:
+                if attempt == self.MAX_429_RETRIES:
+                    raise
+                import time
+
+                delay = retry_delay_from(exc)
+                self.rate_limit_waits += delay
+                time.sleep(delay)
+        raise RuntimeError("unreachable")
+
+    def _request_once(self) -> Any:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "messages": self.messages,
@@ -167,17 +226,7 @@ class OpenAICompatProvider:
             "content": message.content or "",
         }
         if raw_calls:
-            entry["tool_calls"] = [
-                {
-                    "id": c.id,
-                    "type": "function",
-                    "function": {
-                        "name": c.function.name,
-                        "arguments": c.function.arguments,
-                    },
-                }
-                for c in raw_calls
-            ]
+            entry["tool_calls"] = [_echo_tool_call(c) for c in raw_calls]
         self.messages.append(entry)
 
         turn.text = message.content or ""

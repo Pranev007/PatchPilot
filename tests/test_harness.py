@@ -95,6 +95,62 @@ def test_run_tests_parses_outcomes(tmp_path):
     assert not (tmp_path / ".patchpilot-report.json").exists()
 
 
+def test_subtest_outcomes_count_as_passing(tmp_path):
+    """Regression test for a false-failure.
+
+    `unittest.subTest` makes pytest-json-report emit "subtests passed" rather
+    than "passed". A parser that knows only "passed" drops those results
+    silently, and because the two interpreters can end up with different
+    plugin versions the same repo reports "passed" on one side and "subtests
+    passed" on the other -- so the comparison invents regressions that never
+    happened. jaraco/zipp did exactly this: 35 vs 8, suite exiting 0 both times.
+    """
+    payload = {
+        "summary": {"collected": 3},
+        "tests": [
+            {"nodeid": "t.py::a", "outcome": "passed"},
+            {"nodeid": "t.py::b", "outcome": "subtests passed"},
+            {"nodeid": "t.py::c", "outcome": "subtests failed"},
+        ],
+    }
+    report = run_tests(FakeSandbox(tmp_path, payload), "pytest", timeout=10)
+    assert report.passing == {"t.py::a", "t.py::b"}
+    assert report.failing == {"t.py::c"}
+    assert not report.unknown
+
+
+def test_unknown_outcomes_are_surfaced_not_dropped(tmp_path):
+    """An outcome we do not recognise must be visible, not silently discarded.
+
+    Dropping it looks identical to the test having vanished, which the
+    comparison then reports as a regression.
+    """
+    payload = {
+        "summary": {"collected": 2},
+        "tests": [
+            {"nodeid": "t.py::a", "outcome": "passed"},
+            {"nodeid": "t.py::b", "outcome": "some-future-outcome"},
+        ],
+    }
+    report = run_tests(FakeSandbox(tmp_path, payload), "pytest", timeout=10)
+    assert report.passing == {"t.py::a"}
+    assert report.unknown == {"t.py::b [some-future-outcome]"}
+    assert "unknown=1" in report.summary()
+
+
+def test_xfail_is_neither_passing_nor_failing(tmp_path):
+    payload = {
+        "summary": {"collected": 2},
+        "tests": [
+            {"nodeid": "t.py::a", "outcome": "xfailed"},
+            {"nodeid": "t.py::b", "outcome": "xpassed"},
+        ],
+    }
+    report = run_tests(FakeSandbox(tmp_path, payload), "pytest", timeout=10)
+    assert not report.passing and not report.failing
+    assert len(report.skipped) == 2
+
+
 def test_run_tests_survives_a_collection_crash(tmp_path):
     """No JSON report written -> unusable, not a false green."""
     report = run_tests(FakeSandbox(tmp_path, None), "pytest", timeout=10)

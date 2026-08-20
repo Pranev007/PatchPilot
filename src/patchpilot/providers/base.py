@@ -76,6 +76,52 @@ class Provider(Protocol):
         ...
 
 
+class RateLimiter:
+    """Proactive request spacing.
+
+    Free tiers are tight enough that reacting to 429s is the wrong strategy:
+    Gemini's free tier allows 5 requests/minute and answers a violation with
+    a ~25 second penalty, so a burst of retries costs more wall time than
+    simply never exceeding the limit. When the ceiling is known, space the
+    requests instead of discovering it repeatedly.
+    """
+
+    def __init__(self, rpm: float | None):
+        self.min_interval = 60.0 / rpm if rpm else 0.0
+        self._last = 0.0
+
+    def wait(self) -> float:
+        """Block until the next request is allowed. Returns seconds slept."""
+        if not self.min_interval:
+            return 0.0
+        import time
+
+        delay = self.min_interval - (time.monotonic() - self._last)
+        if delay > 0:
+            time.sleep(delay)
+        else:
+            delay = 0.0
+        self._last = time.monotonic()
+        return delay
+
+
+def retry_delay_from(error: Exception, default: float = 30.0) -> float:
+    """Pull the server's suggested wait out of a 429 message.
+
+    Providers state how long to wait ("Please retry in 25.357622168s"), and
+    honouring that is both faster and politer than a fixed exponential ramp.
+    """
+    import re
+
+    match = re.search(r"retry in ([0-9.]+)s", str(error))
+    if match:
+        try:
+            return min(float(match.group(1)) + 1.0, 120.0)
+        except ValueError:
+            pass
+    return default
+
+
 def price_for(model: str, prices: dict[str, dict[str, float]]) -> dict[str, float] | None:
     """Look up per-MTok pricing, tolerating provider prefixes and suffixes.
 

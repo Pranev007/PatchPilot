@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from .base import Provider, ToolCall, Turn, Usage, price_for
-from .openai_provider import KNOWN_BASE_URLS, KNOWN_KEY_ENVS
+from .openai_provider import DEFAULT_RPM, KNOWN_BASE_URLS, KNOWN_KEY_ENVS
 
 __all__ = [
     "Provider",
@@ -14,6 +14,7 @@ __all__ = [
     "Usage",
     "price_for",
     "make_provider",
+    "DEFAULT_RPM",
     "KNOWN_BASE_URLS",
     "KNOWN_KEY_ENVS",
     "PROVIDERS",
@@ -28,6 +29,7 @@ def make_provider(
     effort: str,
     base_url: str | None = None,
     max_tokens: int | None = None,
+    rpm: float | None = None,
 ) -> Provider:
     """Build a provider.
 
@@ -65,4 +67,5 @@ def make_provider(
         api_key=api_key,
         base_url=base_url or KNOWN_BASE_URLS[provider],
         max_tokens=max_tokens or 16000,
+        rpm=DEFAULT_RPM.get(provider) if rpm is None else (rpm or None),
     )

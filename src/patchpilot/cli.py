@@ -106,6 +106,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = RunConfig(
         provider=args.provider,
         base_url=args.base_url,
+        rpm=args.rpm,
         model=args.model,
         effort=args.effort,
         max_iterations=args.max_iterations,
@@ -132,7 +133,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     def provider_factory(cfg: RunConfig):
         return make_provider(
             provider=cfg.provider, model=cfg.model,
-            effort=cfg.effort, base_url=cfg.base_url,
+            effort=cfg.effort, base_url=cfg.base_url, rpm=cfg.rpm,
         )
 
     results = []
@@ -168,6 +169,7 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     base_config = RunConfig(
         provider=args.provider,
         base_url=args.base_url,
+        rpm=args.rpm,
         model=args.model,
         max_iterations=args.max_iterations,
         max_spend_usd=args.max_spend,
@@ -210,7 +212,7 @@ def cmd_sweep(args: argparse.Namespace) -> int:
             # silently run every level at the same effort.
             provider_factory=lambda cfg: make_provider(
                 provider=cfg.provider, model=cfg.model,
-                effort=cfg.effort, base_url=cfg.base_url,
+                effort=cfg.effort, base_url=cfg.base_url, rpm=cfg.rpm,
             ),
             sweep_dir=sweep_dir,
             max_total_spend=args.max_total_spend,
@@ -295,6 +297,11 @@ def main(argv: list[str] | None = None) -> int:
     p_run.add_argument(
         "--base-url", help="override the endpoint (any OpenAI-compatible API)",
     )
+    p_run.add_argument(
+        "--rpm", type=float,
+        help="requests/minute ceiling; defaults per provider (Gemini free is 5). "
+             "0 disables spacing",
+    )
     p_run.add_argument("--model", default="claude-opus-5")
     p_run.add_argument(
         "--effort",
@@ -332,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sweep.add_argument(
         "--base-url", help="override the endpoint (any OpenAI-compatible API)",
     )
+    p_sweep.add_argument("--rpm", type=float)
     p_sweep.add_argument("--model", default="claude-opus-5")
     p_sweep.add_argument(
         "--efforts",

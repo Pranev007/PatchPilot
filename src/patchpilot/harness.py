@@ -27,6 +27,21 @@ _REPORT_FILE = ".patchpilot-report.json"
 # having to scrape pytest's human-readable summary.
 _HARNESS_DEPS = ["pytest", "pytest-json-report"]
 
+# pytest-json-report outcome vocabulary. This is wider than it looks:
+# `unittest.subTest` produces "subtests passed" rather than "passed", and a
+# parser that only knows "passed" silently discards those results. Because the
+# two interpreters can end up with different plugin versions, the same repo can
+# report "passed" on one side and "subtests passed" on the other -- and the
+# set comparison then reports every one of them as a regression that never
+# happened. jaraco/zipp fails exactly this way: 35 passing on 3.8 versus 8 on
+# 3.12, with the suite exiting 0 both times.
+_PASSING = {"passed", "subtests passed"}
+_FAILING = {"failed", "error", "subtests failed"}
+# xfailed/xpassed are deliberately neither: an expected failure is not a
+# passing test we must preserve, and treating it as failing would penalise
+# the agent for behaviour the repo declared intentional.
+_SKIPPED = {"skipped", "xfailed", "xpassed"}
+
 
 @dataclass
 class SuiteReport:
@@ -34,6 +49,7 @@ class SuiteReport:
     passing: set[str] = field(default_factory=set)
     failing: set[str] = field(default_factory=set)
     skipped: set[str] = field(default_factory=set)
+    unknown: set[str] = field(default_factory=set)
     raw: str = ""
     parsed: bool = False
     exit_code: int = -1
@@ -59,10 +75,11 @@ class SuiteReport:
         return baseline.passing - self.passing
 
     def summary(self) -> str:
+        extra = f" unknown={len(self.unknown)}" if self.unknown else ""
         return (
             f"exit={self.exit_code} collected={self.collected} "
             f"passed={len(self.passing)} failed={len(self.failing)} "
-            f"skipped={len(self.skipped)}"
+            f"skipped={len(self.skipped)}{extra}"
         )
 
 
@@ -138,12 +155,17 @@ def run_tests(sandbox: Sandbox, test_cmd: str, timeout: int) -> SuiteReport:
     for test in data.get("tests", []):
         node_id = test.get("nodeid", "")
         outcome = test.get("outcome", "")
-        if outcome == "passed":
+        if outcome in _PASSING:
             report.passing.add(node_id)
-        elif outcome in ("failed", "error"):
+        elif outcome in _FAILING:
             report.failing.add(node_id)
-        elif outcome == "skipped":
+        elif outcome in _SKIPPED:
             report.skipped.add(node_id)
+        else:
+            # Never drop a result on the floor. An unrecognised outcome that
+            # is silently ignored looks exactly like a test that vanished,
+            # which the comparison then reports as a regression.
+            report.unknown.add(f"{node_id} [{outcome}]")
     return report
 
 

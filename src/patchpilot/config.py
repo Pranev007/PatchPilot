@@ -51,6 +51,7 @@ class RunConfig:
     provider: str = "anthropic"
     model: str = "claude-opus-5"
     base_url: str | None = None
+    rpm: float | None = None
     effort: str = "high"
     max_iterations: int = 6
     max_spend_usd: float = 1.00
