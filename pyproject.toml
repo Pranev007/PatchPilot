@@ -13,6 +13,9 @@ dev = ["pytest>=8.0"]
 # Only needed for `patchpilot sweep` to emit sweep.png. The CSV and the
 # markdown table are produced without it.
 plot = ["matplotlib>=3.8"]
+# Needed for every non-Anthropic provider (Gemini, DeepSeek,
+# OpenRouter, Together, HuggingFace, OpenAI).
+openai = ["openai>=1.60"]
 
 [project.scripts]
 patchpilot = "patchpilot.cli:main"

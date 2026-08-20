@@ -28,9 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-import anthropic
-
 from .config import RepoSpec, RunConfig
+from .providers import Provider
 from .runner import SUCCESS, run_repo
 
 _ATTEMPTED = {"success", "failed_iterations", "failed_spend"}
@@ -95,7 +94,7 @@ def run_sweep(
     base_config: RunConfig,
     efforts: list[str],
     repeats: int,
-    client_factory: Callable[[], anthropic.Anthropic],
+    provider_factory: Callable[[RunConfig], Provider],
     sweep_dir: Path,
     max_total_spend: float,
     resume: bool = False,
@@ -107,6 +106,7 @@ def run_sweep(
                 "efforts": efforts,
                 "repeats": repeats,
                 "repos": [s.name for s in specs],
+                "provider": base_config.provider,
                 "model": base_config.model,
                 "max_iterations": base_config.max_iterations,
                 "max_spend_usd_per_repo": base_config.max_spend_usd,
@@ -153,7 +153,7 @@ def run_sweep(
                         f"Re-run with --resume and a higher --max-total-spend."
                     )
 
-                result = run_repo(spec, config, client_factory, run_root)
+                result = run_repo(spec, config, provider_factory, run_root)
                 results.append(result)
                 spent += result["cost_usd"]
                 print(

@@ -16,12 +16,11 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-import anthropic
-
 from .agent import Agent, SpendExceeded
 from .config import RepoSpec, RunConfig
 from .harness import failure_digest, install, run_tests
 from .ledger import Ledger
+from .providers import Provider
 from .sandbox import make_sandbox
 
 # Terminal outcomes.
@@ -45,7 +44,7 @@ Make the changes needed for the package to work on Python {to}."""
 def run_repo(
     spec: RepoSpec,
     config: RunConfig,
-    client_factory: Callable[[], anthropic.Anthropic],
+    provider_factory: Callable[[RunConfig], Provider],
     run_root: Path,
 ) -> dict[str, Any]:
     """Migrate one repo. Always returns a result dict; never raises."""
@@ -108,7 +107,7 @@ def run_repo(
         # One Agent for the whole repo: the model keeps its earlier reasoning
         # and edits in context, and the cached prefix grows instead of being
         # rebuilt every iteration.
-        agent = Agent(client_factory, config, ledger, sandbox)
+        agent = Agent(provider_factory(config), config, ledger, sandbox)
 
         problem: str | None = None
         for iteration in range(1, config.max_iterations + 1):

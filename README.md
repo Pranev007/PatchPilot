@@ -175,6 +175,53 @@ patchpilot sweep-report --sweep runs/sweep-2026-08-19T10-00-00
 
 ---
 
+## Providers
+
+The verify loop, harness and sandbox do not care which model wrote the patch,
+so the model sits behind a narrow provider boundary. Anything that speaks the
+OpenAI Chat Completions protocol works through one implementation:
+
+| `--provider` | Endpoint | Key read from |
+|---|---|---|
+| `anthropic` (default) | Anthropic API | `ANTHROPIC_API_KEY` |
+| `gemini` | Google AI (OpenAI-compat) | `GEMINI_API_KEY` |
+| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `openrouter` | OpenRouter | `OPENROUTER_API_KEY` |
+| `together` | Together AI | `TOGETHER_API_KEY` |
+| `huggingface` | HF Inference Providers | `HF_TOKEN` |
+| `openai` | OpenAI | `OPENAI_API_KEY` |
+
+Anything else works with `--base-url`. Keys are read from the environment and
+never accepted as arguments — a key passed on the command line lands in shell
+history and in the process list.
+
+```bash
+patchpilot run --provider gemini   --model gemini-2.0-flash
+patchpilot run --provider deepseek --model deepseek-v4-flash
+```
+
+The Anthropic path keeps features the compatibility layer cannot express:
+adaptive thinking, reasoning effort, explicit prompt-cache breakpoints and
+server-side fallbacks. On other providers `reasoning_effort` is sent
+optimistically and dropped on first rejection, so `--effort` is a no-op where
+it is unsupported — which is why the sweep's natural axis there is **model**
+rather than effort.
+
+### The no-op-turn guard
+
+Some models end a turn describing an edit instead of performing one. Without a
+guard the harness treats that as a completed attempt, re-runs an unchanged
+checkout, sees identical failures, and burns an iteration — six of those and a
+repo is reported as `failed_iterations` when the model never actually failed
+the migration, only the protocol.
+
+A turn that calls no tools is therefore re-prompted rather than counted, twice,
+then the iteration ends. `noop_retries` is recorded per repo, so a model with a
+protocol problem is visible in the results rather than mistaken for a model
+with a capability problem.
+
+---
+
 ## How it works
 
 ```
@@ -202,6 +249,7 @@ patchpilot sweep-report --sweep runs/sweep-2026-08-19T10-00-00
 | `ledger.py` | Tokens, dollars, tool calls, and a JSONL trace per repo. |
 | `report.py` | Turns `result.json` files into the table above. |
 | `sweep.py` | Runs the benchmark across effort levels; budget, resume, plot. |
+| `providers/` | Anthropic and OpenAI-compatible backends behind one interface. |
 
 ---
 
@@ -212,10 +260,12 @@ uv venv --python 3.12 .venv
 uv pip install --python .venv -e .
 ```
 
-Set your API key (get one at <https://console.anthropic.com/settings/keys>):
+Set a key for whichever provider you are using (see
+[Providers](#providers)). Export it in your own shell — never pass it as an
+argument:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=...
 ```
 
 Check the environment before spending anything:

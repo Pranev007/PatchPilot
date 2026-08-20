@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import PRICES
+from .providers.base import price_for
 
 
 @dataclass
@@ -30,21 +31,23 @@ class Ledger:
     api_calls: int = 0
     tool_calls: int = 0
     iterations: int = 0
+    noop_retries: int = 0
 
     def __post_init__(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = self.path.open("a", encoding="utf-8")
 
     def record_usage(self, usage: Any) -> None:
+        """Accumulate one call. Takes a providers.base.Usage."""
         self.api_calls += 1
-        self.input_tokens += getattr(usage, "input_tokens", 0) or 0
-        self.output_tokens += getattr(usage, "output_tokens", 0) or 0
-        self.cache_read_tokens += getattr(usage, "cache_read_input_tokens", 0) or 0
-        self.cache_write_tokens += getattr(usage, "cache_creation_input_tokens", 0) or 0
+        self.input_tokens += usage.input_tokens
+        self.output_tokens += usage.output_tokens
+        self.cache_read_tokens += usage.cache_read_tokens
+        self.cache_write_tokens += usage.cache_write_tokens
 
     @property
     def cost_usd(self) -> float:
-        price = PRICES.get(self.model)
+        price = price_for(self.model, PRICES)
         if price is None:
             return 0.0
         per_m = 1_000_000
@@ -71,6 +74,7 @@ class Ledger:
             "repo": self.repo,
             "model": self.model,
             "iterations": self.iterations,
+            "noop_retries": self.noop_retries,
             "api_calls": self.api_calls,
             "tool_calls": self.tool_calls,
             "input_tokens": self.input_tokens,

@@ -129,6 +129,27 @@ def test_csv_has_one_row_per_repo_run(tmp_path):
     assert rows[0].startswith("effort,repeat,repo,outcome")
 
 
+def test_provider_is_built_from_the_cell_config_not_the_cli_args():
+    """Regression test: the sweep must vary effort per cell.
+
+    The provider factory originally closed over the CLI's --effort, so every
+    cell in an effort sweep would have run at the same effort while the table
+    and chart claimed otherwise -- a silently meaningless comparison rather
+    than a crash. The factory now takes the per-cell RunConfig.
+    """
+    base = RunConfig(model="claude-opus-5", effort="low", provider="anthropic")
+    seen = []
+
+    def factory(cfg: RunConfig):
+        seen.append(cfg.effort)
+        return object()
+
+    for effort in ("medium", "high", "xhigh"):
+        factory(RunConfig(**{**base.__dict__, "effort": effort}))
+
+    assert seen == ["medium", "high", "xhigh"]
+
+
 def test_effort_override_preserves_the_rest_of_the_config():
     """The sweep rebuilds RunConfig per level; nothing else may drift."""
     base = RunConfig(model="claude-opus-5", max_iterations=4, sandbox="docker")

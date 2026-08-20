@@ -16,11 +16,10 @@ import shutil
 import sys
 from pathlib import Path
 
-import anthropic
-
 from .config import RunConfig, load_repos
 from .report import load_results, render
 from .runner import SUCCESS, run_repo
+from .providers import KNOWN_KEY_ENVS, PROVIDERS, make_provider
 from .sandbox import DockerSandbox
 from .sweep import (
     BudgetExhausted,
@@ -46,12 +45,16 @@ def cmd_doctor(_: argparse.Namespace) -> int:
             DockerSandbox.available(),
             "required for --sandbox docker (recommended for the full benchmark)",
         ),
-        (
-            "ANTHROPIC_API_KEY",
-            bool(os.environ.get("ANTHROPIC_API_KEY")),
-            "or an `ant auth login` profile",
-        ),
     ]
+    keyed = [e for e in {"ANTHROPIC_API_KEY", *KNOWN_KEY_ENVS.values()}
+             if os.environ.get(e)]
+    checks.append((
+        "provider key",
+        bool(keyed),
+        f"found: {', '.join(sorted(keyed))}" if keyed
+        else "set one of ANTHROPIC_API_KEY, "
+             + ", ".join(sorted(set(KNOWN_KEY_ENVS.values()))),
+    ))
     ok = True
     for name, passed, note in checks:
         mark = "ok  " if passed else "MISS"
@@ -63,6 +66,31 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _preflight_provider(args) -> int:
+    """Fail fast on a bad provider config, before cloning anything.
+
+    Skipped when --max-iterations is 1, because that path establishes a
+    baseline without ever calling the model and must keep working with no
+    credentials at all.
+    """
+    if args.max_iterations <= 1:
+        return 0
+    try:
+        make_provider(
+            provider=args.provider, model=args.model,
+            effort=args.effort, base_url=args.base_url,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"\n{exc}\n", file=sys.stderr)
+        print(
+            "Or validate the repo set for free, which never calls the model:\n"
+            "    patchpilot run --max-iterations 1",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     specs = load_repos(Path(args.repos))
     if args.only:
@@ -72,7 +100,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"No repo matched {sorted(wanted)}", file=sys.stderr)
             return 1
 
+    if _preflight_provider(args):
+        return 1
+
     config = RunConfig(
+        provider=args.provider,
+        base_url=args.base_url,
         model=args.model,
         effort=args.effort,
         max_iterations=args.max_iterations,
@@ -94,13 +127,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     print(f"Run directory: {run_dir}\n")
 
-    # Constructed on first model call, so --max-iterations 1 (baseline only)
-    # runs without credentials.
-    client_factory = anthropic.Anthropic
+    # Called only when a repo actually reaches the model, so
+    # --max-iterations 1 (baseline only) still runs without credentials.
+    def provider_factory(cfg: RunConfig):
+        return make_provider(
+            provider=cfg.provider, model=cfg.model,
+            effort=cfg.effort, base_url=cfg.base_url,
+        )
+
     results = []
     for i, spec in enumerate(specs, 1):
         print(f"[{i}/{len(specs)}] {spec.name} ...", flush=True)
-        result = run_repo(spec, config, client_factory, run_dir)
+        result = run_repo(spec, config, provider_factory, run_dir)
         results.append(result)
         marker = "PASS" if result["outcome"] == SUCCESS else result["outcome"]
         print(
@@ -128,6 +166,8 @@ def cmd_sweep(args: argparse.Namespace) -> int:
             return 1
 
     base_config = RunConfig(
+        provider=args.provider,
+        base_url=args.base_url,
         model=args.model,
         max_iterations=args.max_iterations,
         max_spend_usd=args.max_spend,
@@ -135,6 +175,9 @@ def cmd_sweep(args: argparse.Namespace) -> int:
         test_timeout=args.test_timeout,
         upgrade_test_tooling=not args.honour_test_pins,
     )
+
+    if _preflight_provider(args):
+        return 1
 
     cells_total = len(args.efforts) * args.repeats
     worst_case = cells_total * len(specs) * args.max_spend
@@ -162,7 +205,13 @@ def cmd_sweep(args: argparse.Namespace) -> int:
             base_config=base_config,
             efforts=args.efforts,
             repeats=args.repeats,
-            client_factory=anthropic.Anthropic,
+            # Derived from the per-cell config, NOT from args: the sweep
+            # varies effort per cell, and closing over args.effort here would
+            # silently run every level at the same effort.
+            provider_factory=lambda cfg: make_provider(
+                provider=cfg.provider, model=cfg.model,
+                effort=cfg.effort, base_url=cfg.base_url,
+            ),
             sweep_dir=sweep_dir,
             max_total_spend=args.max_total_spend,
             resume=args.resume,
@@ -239,6 +288,13 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser("run", help="run the migration benchmark")
     p_run.add_argument("--repos", default="configs/repos.yaml")
     p_run.add_argument("--only", nargs="*", help="restrict to these repo names")
+    p_run.add_argument(
+        "--provider", default="anthropic", choices=PROVIDERS,
+        help="model provider; keys are read from the matching env var",
+    )
+    p_run.add_argument(
+        "--base-url", help="override the endpoint (any OpenAI-compatible API)",
+    )
     p_run.add_argument("--model", default="claude-opus-5")
     p_run.add_argument(
         "--effort",
@@ -269,6 +325,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_sweep.add_argument("--repos", default="configs/repos.yaml")
     p_sweep.add_argument("--only", nargs="*", help="restrict to these repo names")
+    p_sweep.add_argument(
+        "--provider", default="anthropic", choices=PROVIDERS,
+        help="model provider; keys are read from the matching env var",
+    )
+    p_sweep.add_argument(
+        "--base-url", help="override the endpoint (any OpenAI-compatible API)",
+    )
     p_sweep.add_argument("--model", default="claude-opus-5")
     p_sweep.add_argument(
         "--efforts",
@@ -283,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         default=3,
         help="runs per level; >1 gives an error bar on the success rate",
     )
+    p_sweep.add_argument("--effort", default="high")
     p_sweep.add_argument("--max-iterations", type=int, default=6)
     p_sweep.add_argument(
         "--max-spend", type=float, default=1.00, help="per-repo cap in USD"
