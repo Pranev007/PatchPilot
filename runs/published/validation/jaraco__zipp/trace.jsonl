@@ -1,6 +1,0 @@
-{"t": 0.0, "repo": "jaraco/zipp", "kind": "phase", "phase": "baseline_setup", "python": "3.8"}
-{"t": 24.1, "repo": "jaraco/zipp", "kind": "baseline", "summary": "exit=0 collected=35 passed=35 failed=0 skipped=0"}
-{"t": 24.1, "repo": "jaraco/zipp", "kind": "phase", "phase": "target_setup", "python": "3.12"}
-{"t": 24.57, "repo": "jaraco/zipp", "kind": "phase", "phase": "iteration", "n": 1}
-{"t": 41.87, "repo": "jaraco/zipp", "kind": "test_run", "n": 1, "summary": "exit=0 collected=35 passed=8 failed=0 skipped=0", "output": ".......................... [ 74%]\n.........                                                    [100%]\n35 passed, 58 subtests passed in 3.51s"}
-{"t": 41.87, "repo": "jaraco/zipp", "kind": "outcome", "model": "claude-opus-5", "iterations": 1, "api_calls": 0, "tool_calls": 0, "input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0, "cache_write_tokens": 0, "cost_usd": 0.0, "wall_seconds": 41.9, "outcome": "failed_iterations", "iterations_used": 1, "baseline_passing": 35, "detail": "iteration cap reached with regressions outstanding"}

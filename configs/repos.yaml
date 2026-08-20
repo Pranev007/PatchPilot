@@ -11,7 +11,9 @@
 #
 # Repos that were already green on 3.12 at their pinned ref were REMOVED:
 # they have nothing to migrate and would inflate the success rate for free.
-# Dropped for that reason: Suor/funcy, chardet/chardet, jd/tenacity, kjd/idna, lepture/mistune, martinblech/xmltodict, pallets/jinja, psf/cachecontrol, python-jsonschema/jsonschema, seatgeek/thefuzz, tartley/colorama, ubernostrum/webcolors.
+# Dropped for that reason (14 of 36 scouted), including jaraco/zipp and
+# more-itertools, which only looked like failures until the subtest-outcome
+# bug in the parser was fixed.
 #
 # Re-validate after any edit here. It costs nothing:
 #     patchpilot run --max-iterations 1
@@ -34,8 +36,8 @@ repos:
     url: https://github.com/python-attrs/attrs
     ref: "21.4.0.post1"
     install:
-      - "uv pip install -e . cloudpickle six"
-      - "uv pip install hypothesis zope.interface pympler"
+      - "uv pip install -e ."
+      - "uv pip install hypothesis zope.interface pympler cloudpickle six"
     notes: >
       1161 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-02-02. CI matrix tops out at 3.8, 3.9, 3.10.
 
@@ -47,12 +49,6 @@ repos:
       - "uv pip install -r requirements/tests.txt"
     notes: >
       568 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-04-28. CI matrix tops out at 3.9, 3.10, 3.11.
-
-  - name: more-itertools/more-itertools
-    url: https://github.com/more-itertools/more-itertools
-    ref: "v8.13.0"
-    notes: >
-      534 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-05-06. CI matrix tops out at 3.8, 3.9, 3.10.
 
   - name: python-humanize/humanize
     url: https://github.com/python-humanize/humanize
@@ -119,12 +115,3 @@ repos:
       - "uv pip install responses"
     notes: >
       47 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-05-04. CI matrix tops out at 3.8, 3.9, 3.10.
-
-  - name: jaraco/zipp
-    url: https://github.com/jaraco/zipp
-    ref: "v3.8.0"
-    install:
-      - "uv pip install -e ."
-      - "uv pip install jaraco.itertools func-timeout more-itertools"
-    notes: >
-      35 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-04-03. CI matrix tops out at 3.7, 3.9, 3.10.
