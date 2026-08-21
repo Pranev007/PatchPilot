@@ -11,9 +11,10 @@
 #
 # Repos that were already green on 3.12 at their pinned ref were REMOVED:
 # they have nothing to migrate and would inflate the success rate for free.
-# Dropped for that reason (14 of 36 scouted), including jaraco/zipp and
-# more-itertools, which only looked like failures until the subtest-outcome
-# bug in the parser was fixed.
+# Dropped for that reason (15 of 36 scouted). Three of them -- jaraco/zipp,
+# more-itertools and python-humanize/humanize -- only looked like failures
+# until bugs in the harness itself were fixed: the subtest-outcome parser,
+# and node IDs that embed a memory address.
 #
 # Re-validate after any edit here. It costs nothing:
 #     patchpilot run --max-iterations 1
@@ -51,15 +52,6 @@ repos:
       - "uv pip install -r requirements/tests.txt"
     notes: >
       568 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-04-28. CI matrix tops out at 3.9, 3.10, 3.11.
-
-  - name: python-humanize/humanize
-    url: https://github.com/python-humanize/humanize
-    ref: "4.2.3"
-    install:
-      - "uv pip install -e ."
-      - "uv pip install freezegun"
-    notes: >
-      437 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-06-30. CI matrix tops out at 3.9, 3.10, 3.11.
 
   - name: mahmoud/boltons
     url: https://github.com/mahmoud/boltons

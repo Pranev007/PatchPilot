@@ -234,3 +234,43 @@ def test_small_files_are_returned_without_a_truncation_note():
     out = _read_window("a = 1\nb = 2\n")
     assert "showing lines" not in out
     assert "a = 1" in out
+
+
+# --- node id stability --------------------------------------------------
+
+
+def test_node_ids_with_memory_addresses_are_normalised():
+    """Regression test: the oracle must be deterministic.
+
+    A parametrized case whose fixture has no custom repr is named after the
+    default object repr, which embeds a memory address. That address changes
+    every process, so two identical runs disagree about which tests exist and
+    the comparison reports phantom regressions. humanize drifted on 4 IDs this
+    way and could not be migrated by any patch.
+    """
+    from patchpilot.harness import normalise_node_id
+
+    a = "t.py::test_x[in7-<tests.t.FakeDate object at 0x00000283E5B81100>]"
+    b = "t.py::test_x[in7-<tests.t.FakeDate object at 0x0000020E0F0A1D60>]"
+    assert normalise_node_id(a) == normalise_node_id(b)
+    assert "0xADDR" in normalise_node_id(a)
+
+
+def test_normalisation_leaves_ordinary_ids_alone():
+    from patchpilot.harness import normalise_node_id
+
+    for node in ("t.py::test_a", "t.py::test_b[1-2]", "t.py::TestC::test_d[x0]"):
+        assert normalise_node_id(node) == node
+
+
+def test_two_runs_that_only_differ_by_address_have_no_regressions(tmp_path):
+    def payload(addr):
+        return {
+            "summary": {"collected": 1},
+            "tests": [{"nodeid": f"t.py::test_x[<Fake object at {addr}>]",
+                       "outcome": "passed"}],
+        }
+
+    baseline = run_tests(FakeSandbox(tmp_path, payload("0xAAAA1111")), "pytest", timeout=10)
+    after = run_tests(FakeSandbox(tmp_path, payload("0xBBBB2222")), "pytest", timeout=10)
+    assert after.regressions(baseline) == set()

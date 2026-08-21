@@ -16,6 +16,7 @@ passing node IDs* does not.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +42,23 @@ _FAILING = {"failed", "error", "subtests failed"}
 # passing test we must preserve, and treating it as failing would penalise
 # the agent for behaviour the repo declared intentional.
 _SKIPPED = {"skipped", "xfailed", "xpassed"}
+
+
+# Memory addresses inside parametrized test IDs. When a fixture parameter has
+# no custom repr, pytest names the case after the default object repr:
+#
+#   test_naturaldate[test_input7-<tests.test_time.FakeDate object at 0x283E5B81100>]
+#
+# The address changes every process, so two *identical* runs of the same suite
+# produce different node IDs and the set comparison reports phantom
+# regressions. python-humanize/humanize drifted on 4 IDs this way and was
+# unwinnable: no patch could ever make those tests "the same tests" again.
+_ADDRESS = re.compile(r"0x[0-9a-fA-F]{4,}")
+
+
+def normalise_node_id(node_id: str) -> str:
+    """Make a node ID stable across processes so it can be compared."""
+    return _ADDRESS.sub("0xADDR", node_id)
 
 
 @dataclass
@@ -153,7 +171,7 @@ def run_tests(sandbox: Sandbox, test_cmd: str, timeout: int) -> SuiteReport:
     report.parsed = True
     report.collected = data.get("summary", {}).get("collected", 0)
     for test in data.get("tests", []):
-        node_id = test.get("nodeid", "")
+        node_id = normalise_node_id(test.get("nodeid", ""))
         outcome = test.get("outcome", "")
         if outcome in _PASSING:
             report.passing.add(node_id)
