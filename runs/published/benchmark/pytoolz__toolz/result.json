@@ -13,5 +13,7 @@
   "wall_seconds": 234.0,
   "outcome": "failed_spend",
   "detail": "spend cap reached: $0.4602 >= $0.42",
-  "max_spend_usd": 0.42
+  "max_spend_usd": 0.42,
+  "sandbox": "local",
+  "provider": "anthropic"
 }

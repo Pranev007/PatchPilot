@@ -15,5 +15,7 @@
   "iterations_used": 2,
   "baseline_passing": 568,
   "final_passing": 568,
-  "max_spend_usd": 0.3
+  "max_spend_usd": 0.3,
+  "sandbox": "local",
+  "provider": "anthropic"
 }

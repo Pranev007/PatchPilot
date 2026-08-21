@@ -1,0 +1,41 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install
+        run: uv pip install --system -e ".[dev,openai,plot]"
+
+      # The suite deliberately needs no API key, no Docker and no network:
+      # everything provider- or sandbox-specific is behind a fake. That is
+      # what makes it runnable in CI at all.
+      - name: Run tests
+        run: pytest tests/ -q
+
+      - name: Check the benchmark config still parses
+        run: |
+          python -c "
+          from pathlib import Path
+          from patchpilot.config import load_repos
+          specs = load_repos(Path('configs/repos.yaml'))
+          print(f'{len(specs)} benchmark repos parsed')
+          assert specs, 'benchmark config is empty'
+          "

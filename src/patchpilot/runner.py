@@ -58,7 +58,15 @@ def run_repo(
     sandbox = make_sandbox(config.sandbox, root, spec.url, spec.ref)
 
     def finish(outcome: str, **extra: Any) -> dict[str, Any]:
-        result = ledger.summary(outcome=outcome, **extra)
+        # Recorded per repo: which sandbox produced a number is part of the
+        # number. A result from an unisolated local venv is not the same
+        # claim as one from a container, and a reader should not have to
+        # take the README's word for which was used.
+        result = ledger.summary(
+            outcome=outcome, sandbox=config.sandbox,
+            provider=config.provider, effort=config.effort,
+            max_spend_usd=config.max_spend_usd, **extra,
+        )
         ledger.event("outcome", **result)
         ledger.close()
         (root / "result.json").write_text(

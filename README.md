@@ -2,6 +2,8 @@
 
 **An agentic system for test-verified dependency migration.**
 
+[![tests](https://github.com/Pranev007/PatchPilot/actions/workflows/tests.yml/badge.svg)](https://github.com/Pranev007/PatchPilot/actions/workflows/tests.yml)
+
 PatchPilot upgrades Python packages from 3.8 to 3.12 and proves it worked: the
 repository's own test suite is the acceptance criterion, not the model's
 opinion of its patch.
@@ -83,6 +85,15 @@ migrations per dollar than a high cap across fewer.
 One caveat on the cap: it is checked before each model call, so a single
 expensive call can overshoot it. Two repos ran to $0.46 against a $0.42 cap.
 It bounds spend, it does not pin it.
+
+**These numbers were produced with `--sandbox local`, not Docker.** The
+machine running the benchmark had no Docker daemon, so every repository was
+built and tested in a uv-managed virtualenv on the host. That does not
+affect the measurements -- the interpreter is asserted after every setup and
+each repo gets a fresh environment -- but it does mean the benchmark ran
+without the isolation this README recommends for exactly this use. Each
+`result.json` records the sandbox it ran under, so the artifacts do not
+depend on this paragraph being read.
 
 Raw `result.json` and `trace.jsonl` for all 11: [`runs/published/benchmark/`](runs/published/benchmark/).
 
@@ -632,6 +643,10 @@ patchpilot run --only <name> --max-iterations 1
 
 ## Known limitations
 
+- **The published results were produced without container isolation.** The
+  benchmark machine had no Docker, so everything ran under `--sandbox local`.
+  Re-running under `--sandbox docker` is the single change that would make
+  the results reproducible on someone else's machine.
 - **The local sandbox is not isolated.** `--sandbox local` runs repository
   build scripts and test suites on your machine as you. It exists so the
   project runs without Docker for hand-picked repos you have read. Use

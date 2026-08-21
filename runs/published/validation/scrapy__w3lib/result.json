@@ -14,5 +14,7 @@
   "outcome": "failed_iterations",
   "iterations_used": 1,
   "baseline_passing": 144,
-  "detail": "iteration cap reached with regressions outstanding"
+  "detail": "iteration cap reached with regressions outstanding",
+  "sandbox": "local",
+  "provider": "anthropic"
 }
