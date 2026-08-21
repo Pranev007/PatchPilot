@@ -1,0 +1,19 @@
+{
+  "repo": "john-kurkowski/tldextract",
+  "model": "claude-sonnet-5",
+  "iterations": 2,
+  "noop_retries": 0,
+  "api_calls": 28,
+  "tool_calls": 27,
+  "input_tokens": 56,
+  "output_tokens": 10964,
+  "cache_read_tokens": 430663,
+  "cache_write_tokens": 22958,
+  "cost_usd": 0.3799,
+  "wall_seconds": 310.7,
+  "outcome": "success",
+  "iterations_used": 2,
+  "baseline_passing": 47,
+  "final_passing": 47,
+  "max_spend_usd": 0.5
+}

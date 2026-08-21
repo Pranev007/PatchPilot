@@ -1,0 +1,19 @@
+{
+  "repo": "pallets/itsdangerous",
+  "model": "claude-sonnet-5",
+  "iterations": 2,
+  "noop_retries": 0,
+  "api_calls": 18,
+  "tool_calls": 21,
+  "input_tokens": 36,
+  "output_tokens": 3134,
+  "cache_read_tokens": 120006,
+  "cache_write_tokens": 7011,
+  "cost_usd": 0.1094,
+  "wall_seconds": 154.7,
+  "outcome": "success",
+  "iterations_used": 2,
+  "baseline_passing": 297,
+  "final_passing": 297,
+  "max_spend_usd": 0.3
+}

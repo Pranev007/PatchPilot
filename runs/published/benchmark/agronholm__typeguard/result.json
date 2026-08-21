@@ -1,0 +1,17 @@
+{
+  "repo": "agronholm/typeguard",
+  "model": "claude-sonnet-5",
+  "iterations": 3,
+  "noop_retries": 0,
+  "api_calls": 31,
+  "tool_calls": 29,
+  "input_tokens": 62,
+  "output_tokens": 5057,
+  "cache_read_tokens": 457817,
+  "cache_write_tokens": 24552,
+  "cost_usd": 0.3055,
+  "wall_seconds": 253.8,
+  "outcome": "failed_spend",
+  "detail": "spend cap reached: $0.3055 >= $0.30",
+  "max_spend_usd": 0.3
+}

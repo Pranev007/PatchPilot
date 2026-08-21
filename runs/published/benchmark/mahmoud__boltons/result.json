@@ -1,0 +1,17 @@
+{
+  "repo": "mahmoud/boltons",
+  "model": "claude-sonnet-5",
+  "iterations": 3,
+  "noop_retries": 0,
+  "api_calls": 40,
+  "tool_calls": 38,
+  "input_tokens": 80,
+  "output_tokens": 6028,
+  "cache_read_tokens": 479867,
+  "cache_write_tokens": 18563,
+  "cost_usd": 0.3042,
+  "wall_seconds": 242.6,
+  "outcome": "failed_spend",
+  "detail": "spend cap reached: $0.3042 >= $0.30",
+  "max_spend_usd": 0.3
+}

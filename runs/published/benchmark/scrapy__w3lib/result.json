@@ -1,0 +1,19 @@
+{
+  "repo": "scrapy/w3lib",
+  "model": "claude-sonnet-5",
+  "iterations": 2,
+  "noop_retries": 0,
+  "api_calls": 3,
+  "tool_calls": 2,
+  "input_tokens": 6,
+  "output_tokens": 485,
+  "cache_read_tokens": 9928,
+  "cache_write_tokens": 2297,
+  "cost_usd": 0.0189,
+  "wall_seconds": 59.8,
+  "outcome": "success",
+  "iterations_used": 2,
+  "baseline_passing": 144,
+  "final_passing": 144,
+  "max_spend_usd": 0.3
+}

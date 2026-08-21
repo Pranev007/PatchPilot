@@ -1,0 +1,17 @@
+{
+  "repo": "python-attrs/attrs",
+  "model": "claude-sonnet-5",
+  "iterations": 1,
+  "noop_retries": 0,
+  "api_calls": 35,
+  "tool_calls": 37,
+  "input_tokens": 70,
+  "output_tokens": 11635,
+  "cache_read_tokens": 543002,
+  "cache_write_tokens": 23509,
+  "cost_usd": 0.4258,
+  "wall_seconds": 445.6,
+  "outcome": "failed_spend",
+  "detail": "spend cap reached: $0.4258 >= $0.40",
+  "max_spend_usd": 0.4
+}

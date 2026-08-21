@@ -1,0 +1,17 @@
+{
+  "repo": "pytoolz/toolz",
+  "model": "claude-sonnet-5",
+  "iterations": 1,
+  "noop_retries": 0,
+  "api_calls": 34,
+  "tool_calls": 36,
+  "input_tokens": 68,
+  "output_tokens": 9876,
+  "cache_read_tokens": 360034,
+  "cache_write_tokens": 19396,
+  "cost_usd": 0.3291,
+  "wall_seconds": 271.0,
+  "outcome": "failed_spend",
+  "detail": "spend cap reached: $0.3291 >= $0.30",
+  "max_spend_usd": 0.3
+}

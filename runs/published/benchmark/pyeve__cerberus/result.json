@@ -1,0 +1,19 @@
+{
+  "repo": "pyeve/cerberus",
+  "model": "claude-sonnet-5",
+  "iterations": 3,
+  "noop_retries": 0,
+  "api_calls": 10,
+  "tool_calls": 8,
+  "input_tokens": 20,
+  "output_tokens": 2441,
+  "cache_read_tokens": 55293,
+  "cache_write_tokens": 10187,
+  "cost_usd": 0.0915,
+  "wall_seconds": 688.2,
+  "outcome": "success",
+  "iterations_used": 3,
+  "baseline_passing": 242,
+  "final_passing": 242,
+  "max_spend_usd": 0.3
+}

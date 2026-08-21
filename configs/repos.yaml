@@ -36,8 +36,10 @@ repos:
     url: https://github.com/python-attrs/attrs
     ref: "21.4.0.post1"
     install:
-      - "uv pip install -e ."
-      - "uv pip install hypothesis zope.interface pympler cloudpickle six"
+      # One command, not two: hypothesis depends on attrs, so installing it
+      # after `-e .` pulls a released attrs from PyPI and silently replaces
+      # the editable checkout -- the suite then tests the wrong code.
+      - "uv pip install -e . hypothesis zope.interface pympler cloudpickle six"
     notes: >
       1161 tests pass on 3.8; suite regresses on 3.12. Tagged 2022-02-02. CI matrix tops out at 3.8, 3.9, 3.10.
 
