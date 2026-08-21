@@ -56,6 +56,19 @@ You must actually call the tools to make changes. Describing an edit is not \
 the same as performing one -- nothing you write in prose reaches the \
 repository.
 
+Batch your tool calls. Every turn re-sends the whole conversation, so ten \
+turns of one call each cost several times what two turns of five calls do. \
+When you want to look at four files, or glob three patterns, ask for them \
+all in a single turn. Only serialise when a call genuinely depends on the \
+result of the previous one.
+
+Start from the traceback, not from a survey of the repository. The failure \
+report names the file and line that broke; read that first. Do not inventory \
+the project, read changelogs or documentation, or probe the environment to \
+see which interpreter is running -- the harness has already told you, and \
+every file you read stays in context for the rest of the repo, charged again \
+on every later turn.
+
 The harness runs the full test suite between your turns and reports any test \
 that passed on the old interpreter and no longer passes. You do not need to \
 run the suite yourself, and you do not need to add a verification step -- \

@@ -196,3 +196,41 @@ def test_sandbox_allows_paths_inside_the_repo(tmp_path):
     sandbox.write("pkg/mod.py", "x = 1\n")
     assert sandbox.read("pkg/mod.py") == "x = 1\n"
     assert sandbox.list_files("**/*.py") == ["pkg/mod.py"]
+
+
+# --- read paging --------------------------------------------------------
+
+
+def test_large_reads_are_windowed_not_dumped_whole():
+    """Cost control, not cosmetics.
+
+    Anything read stays in the conversation for the rest of the repo and is
+    re-sent on every later turn. A single 13k-character changelog pulled in
+    during exploration gets paid for dozens of times over -- cache reads were
+    48% of the first calibration run's bill.
+    """
+    from patchpilot.tools import _READ_LIMIT, _read_window
+
+    text = "\n".join(f"line {i}" for i in range(1, 1001))
+    out = _read_window(text)
+    assert out.count("\n") <= _READ_LIMIT + 4
+    assert "line 1\n" in out or out.startswith("  1\tline 1")
+    assert f"of 1000" in out
+
+
+def test_read_window_honours_offset_and_limit():
+    from patchpilot.tools import _read_window
+
+    text = "\n".join(f"line {i}" for i in range(1, 101))
+    out = _read_window(text, offset=50, limit=3)
+    assert "line 50" in out and "line 52" in out
+    assert "line 49" not in out and "line 53" not in out
+    assert "showing lines 50-52 of 100" in out
+
+
+def test_small_files_are_returned_without_a_truncation_note():
+    from patchpilot.tools import _read_window
+
+    out = _read_window("a = 1\nb = 2\n")
+    assert "showing lines" not in out
+    assert "a = 1" in out
