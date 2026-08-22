@@ -66,6 +66,29 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _verify_credential(provider) -> None:
+    """Make one metadata request to confirm the key is live.
+
+    Listing models costs no tokens and returns immediately, so this is the
+    cheapest possible proof that the credential works before a run commits to
+    hours of test suites.
+    """
+    try:
+        client = provider.client
+        if hasattr(client, "models"):
+            client.models.list(limit=1) if provider.name == "anthropic" \
+                else client.models.list()
+    except Exception as exc:  # noqa: BLE001 - surfaced to the user verbatim
+        name = type(exc).__name__
+        if "auth" in name.lower() or "401" in str(exc):
+            raise RuntimeError(
+                f"The provider rejected the credential: {exc}\n\n"
+                "The key is set but not valid. If you recently rotated or "
+                "topped up, the stored key is probably the old one."
+            ) from exc
+        raise RuntimeError(f"Could not reach the provider: {name}: {exc}") from exc
+
+
 def _preflight_provider(args) -> int:
     """Fail fast on a bad provider config, before cloning anything.
 
@@ -76,10 +99,16 @@ def _preflight_provider(args) -> int:
     if args.max_iterations <= 1:
         return 0
     try:
-        make_provider(
+        provider = make_provider(
             provider=args.provider, model=args.model,
             effort=args.effort, base_url=args.base_url,
         )
+        # Actually exercise the credential. Checking only that a key is *set*
+        # is not enough: a revoked key passes that check, and then every repo
+        # runs its full baseline before failing on the first model call. A
+        # whole benchmark can be spent that way -- 11 repos and 25 minutes of
+        # test runs -- to discover something one request would have caught.
+        _verify_credential(provider)
     except (RuntimeError, ValueError) as exc:
         print(f"\n{exc}\n", file=sys.stderr)
         print(
