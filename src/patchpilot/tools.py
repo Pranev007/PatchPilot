@@ -1,11 +1,20 @@
 """Tool surface exposed to the agent.
 
-Five tools, all scoped to one sandbox instance. Kept small on purpose: every
-extra tool is schema tokens on every request and one more way for the agent
-to wander off the task.
+Three tools -- list, read, edit -- all scoped to one sandbox instance.
 
-`run_command` is the wide one. Under the Docker sandbox it is contained. Under
-the local sandbox it runs as you -- see the warning in sandbox.py.
+It used to be five. `write_file` and `run_command` were removed after the
+failure traces showed what the agent did with them: together they make an
+ad-hoc REPL, and once the agent starts using them that way it explores
+instead of editing. Every repository that failed spent 40-62% of its calls on
+`run_command` and wrote five to eight scratch files it later deleted; every
+repository that succeeded used neither, and finished in 2 to 48 calls.
+
+Narrowing the surface is also the only fix that addresses the cause. Telling
+the agent to use the shell less in the prompt helped (63 calls down to 27 on
+one repo) but did not stop it, because a tool that exists will be used. A
+3.8 -> 3.12 migration is edits to pins, metadata and deprecated calls; none of
+it needs a shell, and the harness already reports the test results a shell
+would be used to gather.
 """
 
 from __future__ import annotations
@@ -79,51 +88,6 @@ TOOL_DEFS: list[dict[str, Any]] = [
             "required": ["path", "old_str", "new_str"],
         },
     },
-    {
-        "name": "write_file",
-        "description": (
-            "Write a file, creating it or overwriting it entirely. Use edit_file "
-            "for changes to existing files; use this only for new files or full "
-            "rewrites."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Path relative to the repo root."},
-                "content": {"type": "string", "description": "Full file contents."},
-            },
-            "required": ["path", "content"],
-        },
-    },
-    {
-        "name": "run_command",
-        "description": (
-            "Run a shell command inside the sandbox, from the repo root, with "
-            "the target Python environment active. Returns exit code plus "
-            "combined output. "
-            "Use it sparingly, and only for things the file tools cannot do -- "
-            "checking an installed package version, or running one specific "
-            "failing test. Do NOT run the full test suite (the harness does "
-            "that between your turns), and do NOT probe the environment: you "
-            "already know which interpreter is active and which packages are "
-            "pinned. Reading a file is always cheaper than shelling out to "
-            "inspect it."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "Command to run, e.g. 'python -c \"import mypkg\"'.",
-                },
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in seconds. Default 120.",
-                },
-            },
-            "required": ["command"],
-        },
-    },
 ]
 
 
@@ -195,16 +159,6 @@ def build_dispatch(sandbox: Sandbox) -> Callable[[str, dict[str, Any]], tuple[st
                     )
                 sandbox.write(path, content.replace(old, new))
                 return f"Edited {path}.", False
-
-            if name == "write_file":
-                sandbox.write(args["path"], args["content"])
-                return f"Wrote {args['path']}.", False
-
-            if name == "run_command":
-                timeout = int(args.get("timeout") or 120)
-                res = sandbox.exec(args["command"].split(), timeout=timeout)
-                body = res.tail(4000) or "(no output)"
-                return f"exit={res.returncode}\n{body}", False
 
             return f"Unknown tool: {name}", True
 

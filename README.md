@@ -64,8 +64,44 @@ full dollar, at 50-73 tool calls each, and `loguru`, `attrs` and `pycodestyle`
 never reached a second test run even with the extra budget. These are not
 repositories a dollar short of success; the agent does not know what to do
 with them and spends the money looking around. The failure taxonomy below
-says the same thing from the other direction -- failures are dominated by
-shell calls and scratch files, not edits.
+says the same thing from the other direction, and the next section tests the
+fix it implies.
+
+### Narrowing the tool surface converted a failure
+
+The taxonomy said the shell was the problem. That is a testable claim, so it
+was tested: `write_file` and `run_command` were removed, leaving only
+`list_files`, `read_file` and `edit_file`. Same model, same effort, same $1.00
+cap -- the tool surface is the only thing that changed.
+
+| Repo | 5 tools | 3 tools | Calls |
+|---|---|---|---:|
+| `pytoolz/toolz` | capped, 62 calls, 2 iters | **green**, 29 calls, 4 iters | −53% |
+| `agronholm/typeguard` | capped, 73 calls, 3 iters | capped, 42 calls, 4 iters | −42% |
+| `python-attrs/attrs` | capped, 67 calls, 1 iter | capped, 38 calls, 1 iter | −43% |
+| `PyCQA/pycodestyle` | capped, 50 calls, 1 iter | capped, 37 calls, 1 iter | −26% |
+| `scrapy/w3lib` *(control)* | green, 2 calls | green, 2 calls | 0% |
+
+Tool calls fell 26-53% everywhere, and the mechanism is visible: with the shell
+gone the same budget bought **more iterations**, because it was no longer being
+spent on exploration. `toolz` went from 2 iterations to 4 and reached a green
+suite; `typeguard` went from 3 to 4 and did not. The control was untouched, so
+nothing the successful path needed was removed.
+
+**It converted one repository of four.** That is a real improvement from a
+diagnosis, and it is also smaller than the taxonomy implied. The shell was
+being *used* by every failure, but removing it only rescued the repository that
+was already close. `attrs` and `pycodestyle` still spend an entire budget
+inside a single iteration -- fewer calls, same outcome -- so whatever stops
+them is upstream of the tool surface. The likeliest candidate is the one the
+cost data already points at: with 1,180 and 54 tests respectively, `attrs`
+fails on digest size while `pycodestyle` does not, so a single explanation for
+both is probably wrong.
+
+The three-tool surface is what the code now ships. The headline above was
+measured under the old five-tool surface, and the full set has **not** been
+re-run under the new one, so the honest reading is 6/11 measured plus one
+repository shown to convert -- not 7/11.
 
 ### Outcomes are reproducible; costs are not
 
@@ -270,12 +306,16 @@ calls that are not edits at all but scratch scripts the agent writes, runs and
 then deletes. One trace ends with the agent reporting that it "cleaned up the
 scratch files".
 
-So the tool surface is the problem, not the reasoning. `write_file` plus
-`run_command` together make an ad-hoc REPL, and once the agent starts using
-them that way it explores instead of editing. Tightening `run_command`'s
-description helped (63 calls to 27 on the calibration repo) but did not stop
-it. The next change is structural rather than prompt-level: no general shell
-at all, only narrow tools that cannot be composed into one.
+So the tool surface looked like the problem rather than the reasoning.
+`write_file` plus `run_command` together make an ad-hoc REPL, and once the
+agent starts using them that way it explores instead of editing. Tightening
+`run_command`'s description helped (63 calls to 27 on the calibration repo)
+but did not stop it, because a tool that exists will be used.
+
+That claim was then tested by removing both tools. Calls fell 26-53% and one
+of four failures converted -- directionally right, and smaller than this
+section originally implied. See
+[Narrowing the tool surface converted a failure](#narrowing-the-tool-surface-converted-a-failure).
 
 **Large suites die in the first iteration.** `loguru` (1,352 collected) and
 `attrs` (1,180) each spent an entire budget before reaching a second test run.
@@ -419,7 +459,7 @@ with a capability problem.
 | `runner.py` | The verify loop and the outcome taxonomy. |
 | `agent.py` | The conversation: a hand-written tool-use loop. |
 | `sandbox.py` | Where code runs. Local-venv and Docker backends behind one interface. |
-| `tools.py` | The five tools the agent gets. |
+| `tools.py` | The three tools the agent gets: list, read, edit. |
 | `ledger.py` | Tokens, dollars, tool calls, and a JSONL trace per repo. |
 | `report.py` | Turns `result.json` files into the table above. |
 | `sweep.py` | Runs the benchmark across effort levels; budget, resume, plot. |
