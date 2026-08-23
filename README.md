@@ -745,14 +745,45 @@ patchpilot run --only <name> --max-iterations 1
 
 ## Next
 
-- Get 15 repositories through the selection filter above. Nothing else is
-  worth doing first — every number below is a function of this set.
-- Run the sweep and fill in both tables.
-- Compare a cheaper model against the default on the same set. `sweep.py`
-  varies effort; the same structure extends to `--model`.
-- Build the failure taxonomy from the `trace.jsonl` files: for every repo that
-  hit the iteration cap, what did the agent actually get wrong? That section
-  is worth more than the headline number.
-- Split the repo set before publishing a headline figure. Tuning the prompt
-  against the repos you report on overfits, and with a set this small it
-  overfits fast.
+Ordered by what would most change the conclusions, not by effort.
+
+**A second oracle, checking patch quality.** The largest known weakness. The
+test suite accepted two different patches for the same repository -- one that
+fixed the dependency and one that only silenced the warning -- and scored them
+identically, because by its definition they *are* identical. A reviewer-style
+check would look for suppressions added rather than removed, pins left
+unchanged, and deprecated calls still present after the fix. This is code, not
+budget, and it turns "the tests accept the patch" into something closer to
+"the migration is right".
+
+**Run the benchmark under `--sandbox docker`.** Every published number was
+produced with `--sandbox local`, so `DockerSandbox` is 98 lines that have never
+executed and no test touches. It is also the isolation this README recommends
+for exactly this use. Roughly an hour and $1, and it makes the results
+reproducible on a machine that is not this one.
+
+**Error bars, via `sweep --repeats 3`.** Outcomes have matched across every run
+so far and costs have varied by 4x, but three runs is not evidence that
+outcomes always match. About $30 at observed cost -- the only remaining item
+that needs money rather than time.
+
+**Validate the cost estimator against a real bill.** Figures come from list
+prices in `config.py` and ran ~50% high against the actual account balance.
+Either the cache accounting is wrong or the rates are stale; until it is
+checked, every dollar in this README is an upper bound.
+
+**A second model, and an effort sweep.** Everything here is `claude-sonnet-5`
+at `--effort high`. The provider layer supports seven backends and the sweep
+supports varying effort; neither comparison has been run. DeepSeek V4 Flash
+would cost about $0.50 for the full set.
+
+**A held-out split.** The prompt was revised twice against the same
+repositories now being reported on -- the cost fix in `949e27c` and the tool
+removal in `648e3e6`. Both were driven by trace analysis rather than by
+score-chasing, but the set should be split before the number is quoted
+anywhere that matters.
+
+**Structural work if this were ever to run unattended:** a job queue, resume
+for `run` (only `sweep` has it), parallelism across repositories, and a spend
+cap that is enforced *within* a call rather than before it -- `pycodestyle`
+overshot a $1.00 cap by 55%.
