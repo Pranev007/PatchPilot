@@ -1,18 +1,21 @@
-"""Execution sandboxes.
+"""Execution sandbox.
 
-Two backends behind one interface:
+One backend: `LocalVenvSandbox`, a uv-managed virtualenv per repository on the
+host. Fast, and **not isolated** -- `pip install -e .` executes the target
+repository's `setup.py`, and its tests run as you. Only point it at
+repositories you have read.
 
-  LocalVenvSandbox  -- uv-managed virtualenvs on the host. No Docker needed,
-                       fast, fine for the hand-picked proof-of-concept repos.
-                       NOT isolated: build scripts and tests run as you.
-                       Only point it at repos you have read.
+A container backend existed here and was deleted. It was written, wired into
+the CLI, recommended by the README, and had never once been executed, because
+the machine running the benchmark had no Docker daemon and no test could cover
+it. Ninety-eight lines of plausible, unverified code presented as the safe
+option is worse than not offering the option: it invites trust the code has
+not earned. Every published result was produced by the backend below, so that
+is the only one the repository ships.
 
-  DockerSandbox     -- one container per repo. Use this for the real
-                       benchmark, where you are running dozens of repos you
-                       have not audited.
-
-The interface is deliberately small so a third backend (devcontainer, CI
-runner, SWE-bench image) can be dropped in later.
+The `Sandbox` protocol is kept. It costs nothing, it documents what a second
+backend would have to provide, and adding one is a contained change -- but the
+next backend gets merged with a run behind it.
 """
 
 from __future__ import annotations
@@ -246,107 +249,7 @@ class LocalVenvSandbox:
         rmtree(self.venv)
 
 
-class DockerSandbox:
-    """One container per repo. Use for the full benchmark run.
-
-    Requires a running Docker daemon. Build the image first:
-        docker build -t migration-agent:py312 -f docker/Dockerfile.py312 .
-    """
-
-    IMAGE = "migration-agent:py312"
-    VENV = "/opt/venv"
-
-    def __init__(self, root: Path, repo_url: str, repo_ref: str):
-        self.root = root.resolve()
-        self.workdir = self.root / "repo"
-        self._repo_url = repo_url
-        self._repo_ref = repo_ref
-        self.container: str | None = None
-
-    @property
-    def python_path(self) -> str:
-        return f"{self.VENV}/bin/python"
-
-    @staticmethod
-    def available() -> bool:
-        if shutil.which("docker") is None:
-            return False
-        probe = _run(
-            ["docker", "info", "--format", "{{.ServerVersion}}"], cwd=None, timeout=30
-        )
-        return probe.ok
-
-    def setup(self, python_version: str) -> None:
-        if not self.available():
-            raise RuntimeError(
-                "Docker is not available. Install Docker Desktop, or use --sandbox local."
-            )
-        res = clone(self._repo_url, self._repo_ref, self.workdir)
-        if not res.ok:
-            raise RuntimeError(f"clone failed: {res.tail()}")
-
-        name = f"patchpilot-{self.root.name}"
-        _run(["docker", "rm", "-f", name], cwd=None, timeout=60)
-        res = _run(
-            [
-                "docker", "run", "-d", "--rm",
-                "--name", name,
-                "--memory", "4g", "--cpus", "2",
-                "-v", f"{self.workdir.resolve()}:/work",
-                "-w", "/work",
-                self.IMAGE, "sleep", "infinity",
-            ],
-            cwd=None,
-            timeout=120,
-        )
-        if not res.ok:
-            raise RuntimeError(f"docker run failed (is the image built?): {res.tail()}")
-        self.container = name
-
-        self.provision_env(python_version)
-
-    def provision_env(self, python_version: str) -> None:
-        """Replace the venv inside the container, leaving the checkout alone."""
-        # Same shape as the local backend: a dedicated venv at a fixed
-        # absolute path, never the container's system interpreter.
-        self.exec(["rm", "-rf", self.VENV], timeout=120)
-        res = self.exec(
-            ["uv", "venv", "--python", python_version, self.VENV], timeout=600
-        )
-        if not res.ok:
-            raise RuntimeError(f"uv venv in container failed: {res.tail()}")
-        verify_interpreter(self, python_version)
-
-    def exec(self, cmd: list[str], timeout: int) -> ExecResult:
-        if self.container is None:
-            raise RuntimeError("sandbox not set up")
-        return _run(
-            [
-                "docker", "exec",
-                "-w", "/work",
-                "-e", f"VIRTUAL_ENV={self.VENV}",
-                self.container,
-                *pin_interpreter(cmd, self.python_path),
-            ],
-            cwd=None,
-            timeout=timeout,
-        )
-
-    # File ops go through the bind mount, so they reuse the local helpers.
-    _resolve = LocalVenvSandbox._resolve
-    read = LocalVenvSandbox.read
-    write = LocalVenvSandbox.write
-    list_files = LocalVenvSandbox.list_files
-
-    def teardown(self) -> None:
-        if self.container:
-            _run(["docker", "rm", "-f", self.container], cwd=None, timeout=60)
-            self.container = None
-
-
 def make_sandbox(kind: str, root: Path, repo_url: str, repo_ref: str) -> Sandbox:
     if kind == "local":
         return LocalVenvSandbox(root, repo_url, repo_ref)
-    if kind == "docker":
-        return DockerSandbox(root, repo_url, repo_ref)
-    raise ValueError(f"unknown sandbox: {kind}")
+    raise ValueError(f"unknown sandbox: {kind!r}; only 'local' is implemented")

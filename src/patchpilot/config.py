@@ -55,7 +55,9 @@ class RunConfig:
     effort: str = "high"
     max_iterations: int = 6
     max_spend_usd: float = 1.00
-    sandbox: str = "local"  # "local" | "docker"
+    # Only backend implemented; recorded in every result so an artifact
+    # states the conditions it was produced under.
+    sandbox: str = "local"
     # See harness.install() -- decides whether the benchmark measures the
     # package alone or the package plus its test-tooling pins.
     upgrade_test_tooling: bool = True

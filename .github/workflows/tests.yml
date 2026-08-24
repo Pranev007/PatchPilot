@@ -24,8 +24,8 @@ jobs:
       - name: Install
         run: uv pip install --system -e ".[dev,openai,plot]"
 
-      # The suite deliberately needs no API key, no Docker and no network:
-      # everything provider- or sandbox-specific is behind a fake. That is
+      # The suite deliberately needs no API key and no network:
+      # everything provider- and sandbox-specific is behind a fake. That is
       # what makes it runnable in CI at all.
       - name: Run tests
         run: pytest tests/ -q

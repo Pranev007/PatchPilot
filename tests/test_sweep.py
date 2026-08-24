@@ -152,9 +152,9 @@ def test_provider_is_built_from_the_cell_config_not_the_cli_args():
 
 def test_effort_override_preserves_the_rest_of_the_config():
     """The sweep rebuilds RunConfig per level; nothing else may drift."""
-    base = RunConfig(model="claude-opus-5", max_iterations=4, sandbox="docker")
+    base = RunConfig(model="claude-opus-5", max_iterations=4, max_spend_usd=2.5)
     derived = RunConfig(**{**base.__dict__, "effort": "xhigh"})
     assert derived.effort == "xhigh"
     assert derived.max_iterations == 4
-    assert derived.sandbox == "docker"
+    assert derived.max_spend_usd == 2.5
     assert derived.model == "claude-opus-5"

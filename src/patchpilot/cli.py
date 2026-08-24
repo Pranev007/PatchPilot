@@ -1,6 +1,6 @@
 """Command line entry point.
 
-    patchpilot run           --repos configs/repos.yaml [--sandbox docker]
+    patchpilot run           --repos configs/repos.yaml [--only NAME]
     patchpilot sweep         --efforts medium high xhigh --repeats 3
     patchpilot report        --run runs/2026-08-17T12-00-00
     patchpilot sweep-report  --sweep runs/sweep-2026-08-17T12-00-00
@@ -20,7 +20,6 @@ from .config import RunConfig, load_repos
 from .report import load_results, render
 from .runner import SUCCESS, run_repo
 from .providers import KNOWN_KEY_ENVS, PROVIDERS, make_provider
-from .sandbox import DockerSandbox
 from .sweep import (
     BudgetExhausted,
     load_cells,
@@ -39,12 +38,7 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     """Check the environment before burning API credit on a broken setup."""
     checks: list[tuple[str, bool, str]] = [
         ("git", shutil.which("git") is not None, "required, for cloning repos"),
-        ("uv", shutil.which("uv") is not None, "required for --sandbox local"),
-        (
-            "docker",
-            DockerSandbox.available(),
-            "required for --sandbox docker (recommended for the full benchmark)",
-        ),
+        ("uv", shutil.which("uv") is not None, "required, builds each sandbox venv"),
     ]
     keyed = [e for e in {"ANTHROPIC_API_KEY", *KNOWN_KEY_ENVS.values()}
              if os.environ.get(e)]
@@ -59,7 +53,7 @@ def cmd_doctor(_: argparse.Namespace) -> int:
     for name, passed, note in checks:
         mark = "ok  " if passed else "MISS"
         print(f"[{mark}] {name:<20} {note}")
-        if not passed and name != "docker":
+        if not passed:
             ok = False
     if not ok:
         print("\nFix the MISS lines above before running.")
@@ -140,18 +134,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         effort=args.effort,
         max_iterations=args.max_iterations,
         max_spend_usd=args.max_spend,
-        sandbox=args.sandbox,
         test_timeout=args.test_timeout,
         upgrade_test_tooling=not args.honour_test_pins,
     )
 
-    if config.sandbox == "local":
-        print(
-            "WARNING: --sandbox local runs repo build scripts and tests on this "
-            "machine with no isolation.\n"
-            "         Fine for repos you have read; use --sandbox docker for the "
-            "full benchmark.\n"
-        )
+    print(
+        "WARNING: repository build scripts and test suites run on this machine "
+        "with no isolation.\n"
+        "         `pip install -e .` executes their setup.py. Only run "
+        "repositories you have read.\n"
+    )
 
     run_dir = Path(args.runs_dir) / _timestamp()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -202,7 +194,6 @@ def cmd_sweep(args: argparse.Namespace) -> int:
         model=args.model,
         max_iterations=args.max_iterations,
         max_spend_usd=args.max_spend,
-        sandbox=args.sandbox,
         test_timeout=args.test_timeout,
         upgrade_test_tooling=not args.honour_test_pins,
     )
@@ -345,7 +336,6 @@ def main(argv: list[str] | None = None) -> int:
         default=float(os.environ.get("PATCHPILOT_MAX_SPEND_USD", "1.00")),
         help="hard per-repo spend cap in USD",
     )
-    p_run.add_argument("--sandbox", default="local", choices=["local", "docker"])
     p_run.add_argument("--test-timeout", type=int, default=900)
     p_run.add_argument(
         "--honour-test-pins",
@@ -400,7 +390,6 @@ def main(argv: list[str] | None = None) -> int:
         help="skip cells that already have a result.json (use with --sweep-dir)",
     )
     p_sweep.add_argument("--sweep-dir", help="reuse an existing sweep directory")
-    p_sweep.add_argument("--sandbox", default="local", choices=["local", "docker"])
     p_sweep.add_argument("--test-timeout", type=int, default=900)
     p_sweep.add_argument("--honour-test-pins", action="store_true")
     p_sweep.add_argument("--runs-dir", default="runs")

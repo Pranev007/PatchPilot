@@ -1,6 +1,6 @@
 """Tests for the verification oracle.
 
-These run without an API key, Docker, or network. The regression comparison is
+These run without an API key or network access. The regression comparison is
 the one piece of logic that, if wrong, silently corrupts every number in the
 results table -- so it gets tested directly.
 """

@@ -121,9 +121,10 @@ The practical consequence for running agents on a budget: cap low and run
 wide. A $0.30 cap would have produced six of these seven migrations for a
 quarter of the money.
 
-**Produced with `--sandbox local`, not Docker** -- the benchmark machine had no
-Docker daemon. Each `result.json` records the sandbox, provider, effort and cap
-it ran under, so the artifacts describe their own conditions.
+**Produced without container isolation** -- repositories are built and tested
+in a uv-managed virtualenv on the host. Each `result.json` records the sandbox,
+provider, effort and cap it ran under, so the artifacts describe their own
+conditions.
 
 Raw `result.json` and `trace.jsonl` for all 11: [`runs/published/benchmark/`](runs/published/benchmark/).
 
@@ -443,7 +444,7 @@ with a capability problem.
 | `harness.py` | The oracle. Baseline capture, per-test outcome parsing, regression comparison. |
 | `runner.py` | The verify loop and the outcome taxonomy. |
 | `agent.py` | The conversation: a hand-written tool-use loop. |
-| `sandbox.py` | Where code runs. Local-venv and Docker backends behind one interface. |
+| `sandbox.py` | Where code runs. One uv-venv backend behind a small protocol. |
 | `tools.py` | The three tools the agent gets: list, read, edit. |
 | `ledger.py` | Tokens, dollars, tool calls, and a JSONL trace per repo. |
 | `report.py` | Turns `result.json` files into the table above. |
@@ -484,7 +485,7 @@ patchpilot run --only pallets/itsdangerous --max-iterations 1
 Then the real thing:
 
 ```bash
-patchpilot run --sandbox docker --effort xhigh
+patchpilot run --effort xhigh
 patchpilot report --run runs/2026-08-17T23-13-06
 ```
 
@@ -697,14 +698,11 @@ patchpilot run --only <name> --max-iterations 1
 
 ## Known limitations
 
-- **The published results were produced without container isolation.** The
-  benchmark machine had no Docker, so everything ran under `--sandbox local`.
-  Re-running under `--sandbox docker` is the single change that would make
-  the results reproducible on someone else's machine.
-- **The local sandbox is not isolated.** `--sandbox local` runs repository
-  build scripts and test suites on your machine as you. It exists so the
-  project runs without Docker for hand-picked repos you have read. Use
-  `--sandbox docker` for anything else.
+- **There is no isolation.** Repositories are built and tested on the host:
+  `pip install -e .` executes their `setup.py` and their tests run as you. The
+  11 benchmark repositories are well-known packages, but this is the reason the
+  set is curated by hand rather than pointed at arbitrary URLs, and it is the
+  first thing that would have to change before running anything unaudited.
 - **Python and pytest only.** The oracle depends on `pytest-json-report` for
   per-test node IDs. Other runners need a new parser.
 - **One migration lane.** 3.8 → 3.12 with deprecated-stdlib and dependency-pin
@@ -756,11 +754,13 @@ unchanged, and deprecated calls still present after the fix. This is code, not
 budget, and it turns "the tests accept the patch" into something closer to
 "the migration is right".
 
-**Run the benchmark under `--sandbox docker`.** Every published number was
-produced with `--sandbox local`, so `DockerSandbox` is 98 lines that have never
-executed and no test touches. It is also the isolation this README recommends
-for exactly this use. Roughly an hour and $1, and it makes the results
-reproducible on a machine that is not this one.
+**An isolated sandbox backend.** A container backend used to live in
+`sandbox.py`. It was written, wired into the CLI, recommended by this README --
+and had never once been executed, because the benchmark machine had no Docker
+daemon and no test could cover it. It has been deleted rather than shipped:
+ninety-eight lines of plausible unverified code presented as the *safe* option
+invites trust it has not earned. The `Sandbox` protocol remains, so adding one
+is a contained change. The next backend gets merged with a run behind it.
 
 **Error bars, via `sweep --repeats 3`.** Outcomes have matched across every run
 so far and costs have varied by 4x, but three runs is not evidence that
